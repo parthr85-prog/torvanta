@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "872921649056",
-    "project_id": "buildo-37730",
-    "storage_bucket": "buildo-37730.firebasestorage.app"
+    "project_number": "202195180104",
+    "project_id": "buildo-940cd",
+    "storage_bucket": "buildo-940cd.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:872921649056:android:24b1adff340cadf7121ec5",
+        "mobilesdk_app_id": "1:202195180104:web:f62e63b86ddfe1697f967d",
         "android_client_info": {
           "package_name": "com.parthr.buildo1"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAoLRkgHdXJgvg-mvvDUrruynUAIggyouA"
+          "current_key": "AIzaSyDTzEhZTYtsddIOkmXIY7WEJDAPqMVj0QU"
         }
       ],
       "services": {

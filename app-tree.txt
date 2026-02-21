@@ -1,0 +1,84 @@
+Folder PATH listing
+Volume serial number is 0062-EF47
+C:\USERS\LENOVO\BUILDO\APP
+|   AssignLabour.js
+|   index.js
+|   layout-old.js
+|   modal.tsx
+|   _layout.tsx
+|   
++---(auth)
+|       login.js
+|       otp.js
+|       register-company.js
+|       register-contractor.js
+|       register-labour.js
+|       register-phone.js
+|       register-role.js
+|       verify-otp.old.js
+|       _layout.js
+|       
++---(subscription)
+|       payment.js
+|       plans.js
+|       SubscriptionGuard.js
+|       SubscriptionScreen.js
+|       _layout.js
+|       
++---(tabs)
+|       dashboard.js
+|       explore.tsx
+|       index.tsx
+|       _layout.tsx
+|       
++---admin
+|       dashboard.js
+|       LabourVerification.js
+|       users.js
+|       _layout.js
+|       
++---bids
+|       PlaceBid.js
+|       ReceivedBids.js
+|       
++---chat
+|       chat-list.js
+|       chat-room.js
+|       ChatListScreen.js
+|       ChatScreen.js
+|       StartChatButton.js
+|       
++---Company
+|       dashboard.js
+|       _layout.js
+|       
++---Contractor
+|       dashboard.js
+|       _layout.js
+|       
++---dashboards
+|       AdminDashboard.js
+|       CompanyDashboard.js
+|       ContractorDashboard.js
+|       CreateLabourTeam.js
+|       LabourDashboard.js
+|       LabourList.js
+|       ProjectsList.js
+|       
++---documents
+|       UploadDocument.js
+|       ViewDocuments.js
+|       
++---Labour
+|       dashboard.js
+|       _layout.js
+|       
++---listings
+|       CreateListings.js
+|       ListingDetails.js
+|       ListingsFeed.js
+|       ListingsScreen.js
+|       
+\---profile
+        ProfileScreen.js
+        

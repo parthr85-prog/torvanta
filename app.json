@@ -7,11 +7,18 @@
     "icon": "./assets/images/icon.png",
     "scheme": "buildo",
     "userInterfaceStyle": "automatic",
-
     "newArchEnabled": false,
-
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.parthr85.Buildo",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "expo": {
+      "updates": {
+        "enabled": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +31,8 @@
       "eas": {
         "projectId": "33299dd3-0b7b-4950-9433-f80c0ee5475e"
       }
-    }
+    },
+    "plugins": [],
+    "owner": "parthr85"
   }
 }
