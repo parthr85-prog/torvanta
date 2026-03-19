@@ -30,7 +30,10 @@ export const saveUserProfile = async (data) => {
         status: "active",
         profileCompleted: true,
         verificationLevel: data.verificationLevel || verificationLevel,
-        subscription: "free",
+        subscription: {
+  plan: "free",
+  expiresAt: null,
+},
 
         experienceYears: data.experienceYears || 0,
         totalProjectsCompleted: 0,
