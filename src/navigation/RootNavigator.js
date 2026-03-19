@@ -43,6 +43,8 @@ const [registered,setRegistered] = useState(false);
 const { isRegistering } = useRegisteringState();
 const showAuth = !user || (!registered && !isRegistering);
 
+
+
 useEffect(()=>{
 
 const unsubscribe =
