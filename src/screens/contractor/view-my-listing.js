@@ -1,26 +1,15 @@
+import firestore from "@react-native-firebase/firestore";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  increment,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { db } from "../../../firebaseConfig";
 import VerificationBadge from "../../components/VerificationBadge";
 
 export default function ViewMyListing() {
@@ -31,46 +20,58 @@ export default function ViewMyListing() {
   const [listing, setListing] = useState(null);
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(true);
+  const openDocument = (url)=>{
+Linking.openURL(url);
+};
 
-  /* ---------------- ACCEPT BID ---------------- */
   const acceptBid = async (bid) => {
     try {
-      await updateDoc(doc(db, "listings", listing.id), {
-        status: "awarded",
-        awardedTo: bid.bidBy,
-        awardedBidId: bid.id,
-      });
+      await firestore()
+        .collection("listings")
+        .doc(listing.id)
+        .update({
+          status: "awarded",
+          awardedTo: bid.bidBy,
+          awardedBidId: bid.id,
+          workStartDate: firestore.FieldValue.serverTimestamp(),
+        });
 
-      const bidsQuery = query(
-        collection(db, "bids"),
-        where("listingId", "==", listing.id)
-      );
-
-      const bidsSnap = await getDocs(bidsQuery);
+      const bidsSnap = await firestore()
+        .collection("bids")
+        .where("listingId", "==", listing.id)
+        .get();
 
       for (const b of bidsSnap.docs) {
         if (b.id === bid.id) {
-          await updateDoc(b.ref, { status: "awarded" });
+          await b.ref.update({ status: "awarded" });
 
-          await addDoc(collection(db, "users", bid.bidBy, "notifications"), {
-            userId: bid.bidBy,
-            type: "BID_AWARDED",
-            title: "Your bid was accepted 🎉",
-            message: `Your bid on "${listing.title}" has been accepted.`,
-            isRead: false,
-            createdAt: serverTimestamp(),
-          });
+          await firestore()
+            .collection("users")
+            .doc(bid.bidBy)
+            .collection("notifications")
+            .add({
+              userId: bid.bidBy,
+              type: "BID_AWARDED",
+              title: "Your bid was accepted 🎉",
+              message: `Your bid on "${listing.title}" has been accepted.`,
+              isRead: false,
+              createdAt: firestore.FieldValue.serverTimestamp(),
+            });
         } else {
-          await updateDoc(b.ref, { status: "rejected" });
+          await b.ref.update({ status: "rejected" });
 
-          await addDoc(collection(db, "users", b.data().bidBy, "notifications"), {
-            userId: b.data().bidBy,
-            type: "BID_REJECTED",
-            title: "Bid not selected",
-            message: `Your bid on "${listing.title}" was not selected.`,
-            isRead: false,
-            createdAt: serverTimestamp(),
-          });
+          await firestore()
+            .collection("users")
+            .doc(b.data().bidBy)
+            .collection("notifications")
+            .add({
+              userId: b.data().bidBy,
+              type: "BID_REJECTED",
+              title: "Bid not selected",
+              message: `Your bid on "${listing.title}" was not selected.`,
+              isRead: false,
+              createdAt: firestore.FieldValue.serverTimestamp(),
+            });
         }
       }
 
@@ -81,36 +82,51 @@ export default function ViewMyListing() {
     }
   };
 
-  /* ---------------- MARK COMPLETED ---------------- */
   const markCompleted = async () => {
     try {
       if (!listing.awardedTo) return;
 
-      await updateDoc(doc(db, "listings", listing.id), {
-        status: "completed",
-        completedAt: serverTimestamp(),
-      });
+      await firestore()
+        .collection("listings")
+        .doc(listing.id)
+        .update({
+          status: "completed",
+          completedAt: firestore.FieldValue.serverTimestamp(),
+        });
 
-      await updateDoc(doc(db, "users", listing.awardedTo), {
-        ongoingProjects: increment(-1),
-        totalProjectsCompleted: increment(1),
-      });
+        await firestore()
+.collection("users")
+.doc(listing.awardedTo)
+.collection("notifications")
+.add({
+type:"RATE_LISTING_CREATOR",
+listingId:listing.id,
+title:"Work marked completed",
+message:`The project "${listing.title}" was marked completed. Please rate the listing creator.`,
+isRead:false,
+createdAt:firestore.FieldValue.serverTimestamp()
+});
 
       navigation.navigate("RateUser", {
         userId: listing.awardedTo,
         listingId: listing.id,
       });
+
+      
     } catch (e) {
       Alert.alert("Error", e.message);
     }
   };
 
-  /* ---------------- LOAD DATA ---------------- */
   useEffect(() => {
     const loadBids = async () => {
       try {
-        const listingSnap = await getDoc(doc(db, "listings", listingId));
-        if (!listingSnap.exists()) return;
+        const listingSnap = await firestore()
+          .collection("listings")
+          .doc(listingId)
+          .get();
+
+        if (!listingSnap.exists) return;
 
         const listingData = {
           id: listingSnap.id,
@@ -119,26 +135,24 @@ export default function ViewMyListing() {
 
         setListing(listingData);
 
-        const q = query(
-          collection(db, "bids"),
-          where("listingId", "==", listingId)
-        );
-
-        const snap = await getDocs(q);
+        const snap = await firestore()
+          .collection("bids")
+          .where("listingId", "==", listingId)
+          .get();
 
         const results = [];
-
         for (const bidDoc of snap.docs) {
           const bidData = bidDoc.data();
 
-          const userSnap = await getDoc(
-            doc(db, "users", bidData.bidBy)
-          );
+          const userSnap = await firestore()
+            .collection("users")
+            .doc(bidData.bidBy)
+            .get();
 
           results.push({
             id: bidDoc.id,
             ...bidData,
-            bidderProfile: userSnap.exists()
+            bidderProfile: userSnap.exists
               ? userSnap.data()
               : null,
           });
@@ -157,7 +171,25 @@ export default function ViewMyListing() {
 
   if (loading || !listing) return null;
 
-  /* ---------------- RENDER BID CARD ---------------- */
+  const isCompletionPeriodOver = () => {
+
+if(!listing.workStartDate || !listing.workCompletionDays)
+return false;
+
+const start =
+listing.workStartDate.toDate();
+
+const completion =
+new Date(start);
+
+completion.setDate(
+completion.getDate() + listing.workCompletionDays
+);
+
+return new Date() >= completion;
+
+};
+
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <TouchableOpacity
@@ -168,25 +200,72 @@ export default function ViewMyListing() {
         }
       >
         <Text style={styles.bidderName}>
-          {item.bidderProfile?.name || "User"}
+         {item.bidderProfile?.companyName ||
+item.bidderProfile?.contractorName ||
+item.bidderProfile?.labourName ||
+"User"}
         </Text>
       </TouchableOpacity>
 
       <VerificationBadge
-        level={item.bidderProfile?.verificationLevel || "basic"}
+        level={
+          item.bidderProfile?.verificationLevel || "basic"
+        }
       />
 
       <Text style={styles.amount}>₹ {item.amount}</Text>
 
-      {item.message ? (
-        <Text style={styles.msg}>{item.message}</Text>
-      ) : null}
+<Text style={{color:"#C7D2E2",marginTop:4}}>
+GST: {item.taxType === "inclusive" ? "Inclusive" : "Exclusive"}
+</Text>
+
+      <Text style={styles.msg}>
+Message: {item.message || "No message provided"}
+</Text>
 
       <Text style={styles.date}>
         {item.createdAt?.toDate()?.toDateString()}
       </Text>
 
-      {/* ACCEPT BUTTON */}
+      {item.documents?.length > 0 && (
+
+<View style={{marginTop:10}}>
+
+<Text style={styles.section}>
+Bid Documents
+</Text>
+
+{item.documents.map((doc,index)=>(
+<View key={index} style={{marginTop:6}}>
+
+<View style={{flexDirection:"row",justifyContent:"space-between"}}>
+
+<Text style={{color:"#C7D2E2"}}>
+📄 {doc.name}
+</Text>
+
+<TouchableOpacity
+style={styles.downloadBtn}
+onPress={()=>openDocument(doc.url)}
+>
+
+<Text style={{color:"#0B1F3B",fontWeight:"700"}}>
+Open
+</Text>
+
+</TouchableOpacity>
+
+</View>
+
+</View>
+))}
+
+</View>
+
+)}
+
+
+
       {listing.status === "open" && (
         <TouchableOpacity
           style={styles.acceptBtn}
@@ -196,7 +275,6 @@ export default function ViewMyListing() {
         </TouchableOpacity>
       )}
 
-      {/* AWARDED LABEL */}
       {listing.status === "awarded" &&
         listing.awardedBidId === item.id && (
           <View style={styles.awarded}>
@@ -204,19 +282,22 @@ export default function ViewMyListing() {
           </View>
         )}
 
-      {/* REJECTED LABEL */}
       {listing.status === "awarded" &&
         listing.awardedBidId !== item.id && (
           <View style={styles.rejected}>
-            <Text>Not Selected</Text>
+            <Text style={styles.rejectedText}>
+              Not Selected
+            </Text>
           </View>
         )}
 
-      {/* COMPLETE BUTTON */}
       {listing.status === "awarded" &&
         listing.awardedTo === item.bidBy && (
           <TouchableOpacity
-            style={styles.completeBtn}
+            style={[
+styles.completeBtn,
+isCompletionPeriodOver() && { backgroundColor:"#22C55E" }
+]}
             onPress={markCompleted}
           >
             <Text style={styles.btnText}>
@@ -228,74 +309,114 @@ export default function ViewMyListing() {
   );
 
   return (
-    <FlatList
-      data={bids}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.title}>{listing.title}</Text>
-          <Text style={styles.meta}>
-            {listing.location} • {listing.category}
-          </Text>
-          <Text style={styles.section}>Received Bids</Text>
-        </View>
-      }
-      contentContainerStyle={{ padding: 20 }}
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={bids}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {listing.title}
+            </Text>
+            <Text style={styles.meta}>
+              {listing.location} • {listing.category}
+            </Text>
+            <Text style={styles.section}>
+              Received Bids
+            </Text>
+          </View>
+        }
+        contentContainerStyle={{
+          padding: 20,
+          paddingBottom: 40,
+        }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0B1F3B" },
   header: { marginBottom: 20 },
-  title: { fontSize: 20, fontWeight: "bold" },
-  meta: { color: "#6b7280" },
-  section: { marginTop: 20, fontWeight: "bold" },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  meta: { color: "#C7D2E2", marginTop: 4 },
+  section: {
+    marginTop: 20,
+    fontWeight: "700",
+    color: "#D4AF37",
+  },
   card: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: "#122A4D",
+    padding: 16,
+    borderRadius: 18,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#1E3A63",
   },
   bidderName: {
-    fontWeight: "bold",
+    fontWeight: "700",
     fontSize: 16,
+    color: "#FFFFFF",
   },
   amount: {
-    fontWeight: "bold",
-    color: "#2563eb",
+    fontWeight: "700",
+    color: "#D4AF37",
+    marginTop: 6,
   },
-  msg: { marginTop: 6 },
-  date: { fontSize: 12, color: "#6b7280" },
+  msg: { marginTop: 6, color: "#E5E7EB" },
+  date: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 4,
+  },
   acceptBtn: {
-    backgroundColor: "#16a34a",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    backgroundColor: "#22C55E",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
   },
   awarded: {
-    backgroundColor: "#22c55e",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    backgroundColor: "#16A34A",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
   },
   rejected: {
-    backgroundColor: "#e5e7eb",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    backgroundColor: "#1E3A63",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  rejectedText: {
+    color: "#C7D2E2",
+    textAlign: "center",
   },
   completeBtn: {
-    backgroundColor: "#2563eb",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    backgroundColor: "#D4AF37",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
   },
   btnText: {
-    color: "#fff",
+    color: "#FFFFFF",
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: "700",
   },
+  docSection: {
+    color: "#9a4747",
+    textAlign: "center",
+    fontWeight: "700",
+  },
+downloadBtn:{
+backgroundColor:"#D4AF37",
+paddingHorizontal:10,
+paddingVertical:6,
+borderRadius:8
+},
 });

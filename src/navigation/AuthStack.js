@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import ForgotPassword from "../screens/auth/forgot-password";
 import Login from "../screens/auth/login";
 import RegisterCompany from "../screens/auth/register-company";
 import RegisterContractor from "../screens/auth/register-contractor";
@@ -18,6 +19,7 @@ export default function AuthStack() {
       <Stack.Screen name="RegisterCompany" component={RegisterCompany} />
       <Stack.Screen name="RegisterContractor" component={RegisterContractor} />
       <Stack.Screen name="RegisterLabour" component={RegisterLabour} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
     </Stack.Navigator>
   );
 }

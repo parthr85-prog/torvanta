@@ -19,18 +19,27 @@
       }
     },
     "android": {
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "package": "com.parthr85.Buildo"
+      "package": "com.parthr85.Buildo",
+      "googleServicesFile": "./google-services.json"
+
     },
     "extra": {
       "eas": {
         "projectId": "33299dd3-0b7b-4950-9433-f80c0ee5475e"
       }
     },
-    "plugins": [],
+    "plugins": [
+      "expo-asset",
+      "@react-native-firebase/app"
+    ],
     "owner": "parthr85"
   }
 }

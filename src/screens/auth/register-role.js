@@ -1,5 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function RegisterRole() {
   const navigation = useNavigation();
@@ -10,49 +16,87 @@ export default function RegisterRole() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select Your Role</Text>
+      {/* Logo */}
+      <Image
+        source={require("../../../assets/images/logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => goToOtp("company")}
-      >
-        <Text style={styles.buttonText}>Company</Text>
-      </TouchableOpacity>
+      <Text style={styles.brand}>TORVANTA</Text>
+      <Text style={styles.subtitle}>
+        Choose your registration category
+      </Text>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => goToOtp("contractor")}
-      >
-        <Text style={styles.buttonText}>Contractor</Text>
-      </TouchableOpacity>
+      <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => goToOtp("company")}
+        >
+          <Text style={styles.buttonText}>COMPANY</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => goToOtp("labour")}
-      >
-        <Text style={styles.buttonText}>Labour Contractor</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => goToOtp("contractor")}
+        >
+          <Text style={styles.buttonText}>CONTRACTOR</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => goToOtp("labour")}
+        >
+          <Text style={styles.buttonText}>LABOUR CONTRACTOR</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
+  container: {
+    flex: 1,
+    backgroundColor: "#0B1F3B",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  logo: {
+    width: 90,
+    height: 90,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  brand: {
+    fontSize: 26,
+    fontWeight: "700",
     textAlign: "center",
-    marginBottom: 30,
+    color: "#FFFFFF",
+    letterSpacing: 1.5,
+  },
+  subtitle: {
+    textAlign: "center",
+    color: "#C7D2E2",
+    marginBottom: 40,
+    marginTop: 6,
+    fontSize: 14,
+  },
+  card: {
+    backgroundColor: "#122A4D",
+    padding: 24,
+    borderRadius: 18,
   },
   button: {
-    backgroundColor: "#2563eb",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
+    backgroundColor: "#D4AF37",
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginBottom: 18,
   },
   buttonText: {
-    color: "#fff",
+    color: "#0B1F3B",
     textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 1,
   },
 });

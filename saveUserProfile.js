@@ -1,5 +1,4 @@
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "./firebaseConfig";
+import firestore from "@react-native-firebase/firestore";
 
 export const saveUserProfile = async (data) => {
   if (!data?.uid || !data?.role) {
@@ -13,40 +12,38 @@ export const saveUserProfile = async (data) => {
     ...profileData
   } = data;
 
-  // 🔹 Decide verification level
   let verificationLevel = "basic";
 
   if (gstVerified === true) {
     verificationLevel = "gst";
   }
 
-  await setDoc(
-    doc(db, "users", uid),
-    {
-      uid,
-      role,
-      ...profileData,
+  await firestore()
+    .collection("users")
+    .doc(uid)
+    .set(
+      {
+        uid,
+        role,
+        ...profileData,
 
-      // 🔒 System fields
-      status: "active",
-      profileCompleted: true,
-      verificationLevel: data.verificationLevel || "basic", // 🔥 badge system
-      subscription: "free",
-      // 🔹 Experience & Stats
-      experienceYears: data.experienceYears || 0,
-      totalProjectsCompleted: 0,
-      ongoingProjects: 0,
+        status: "active",
+        profileCompleted: true,
+        verificationLevel: data.verificationLevel || verificationLevel,
+        subscription: "free",
 
-      // 🔹 Ratings
-      rating: 0,
-      totalRatings: 0,
+        experienceYears: data.experienceYears || 0,
+        totalProjectsCompleted: 0,
+        ongoingProjects: 0,
 
-      profileSummary: data.profileSummary || "",
+        rating: 0,
+        totalRatings: 0,
 
+        profileSummary: data.profileSummary || "",
 
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+        createdAt: firestore.FieldValue.serverTimestamp(),
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
 };

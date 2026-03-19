@@ -1,5 +1,4 @@
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import firestore from "@react-native-firebase/firestore";
 
 /**
  * Returns:
@@ -7,10 +6,12 @@ import { db } from "../firebaseConfig";
  *  - { role, uid } → already registered
  */
 export async function checkMobileIndex(mobile) {
-  const ref = doc(db, "mobileIndex", mobile);
-  const snap = await getDoc(ref);
+  const snap = await firestore()
+    .collection("mobileIndex")
+    .doc(mobile)
+    .get();
 
-  if (!snap.exists()) return null;
+  if (!snap.exists) return null;
 
   return snap.data(); // { role, uid, createdAt }
 }

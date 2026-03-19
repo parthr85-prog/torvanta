@@ -7,15 +7,15 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:202195180104:web:f62e63b86ddfe1697f967d",
+        "mobilesdk_app_id": "1:202195180104:android:210f37dc7d97470d7f967d",
         "android_client_info": {
-          "package_name": "com.parthr.buildo1"
+          "package_name": "com.parthr85.Buildo"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDTzEhZTYtsddIOkmXIY7WEJDAPqMVj0QU"
+          "current_key": "AIzaSyB33PHh8Rk9p634tlGTwYdTlrVoFnORFrg"
         }
       ],
       "services": {

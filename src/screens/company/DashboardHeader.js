@@ -1,116 +1,151 @@
 import { Ionicons } from "@expo/vector-icons";
+import auth from "@react-native-firebase/auth";
+import firestore from "@react-native-firebase/firestore";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
-import { signOut } from "firebase/auth";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
-
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function DashboardHeader({ title }) {
   const navigation = useNavigation();
-  const user = auth.currentUser;
+  const user = auth().currentUser;
   const [unreadCount, setUnreadCount] = useState(0);
- 
-
 
   const handleLogout = async () => {
-    await signOut(auth);
+  await auth().signOut();
+};
 
+  useEffect(() => {
+    if (!user) return;
 
-   
-    // ❗ Do NOT navigate here
-    // Root layout will redirect automatically
-  };
+    const unsubscribe = firestore()
+      .collection("users")
+      .doc(user.uid)
+      .collection("notifications")
+      .where("isRead", "==", false)
+      .onSnapshot((snap) => {
+        setUnreadCount(snap.size);
+      });
 
+    return () => unsubscribe();
+  }, []);
 
-useEffect(() => {
-  if (!user) return;
+  const openDrawer = () => {
+  navigation.dispatch(DrawerActions.toggleDrawer());
 
-  const q = query(
-    collection(db, "users", user.uid, "notifications"),
-    where("isRead", "==", false)
+  
+};
+
+const contactSupport = () => {
+  Linking.openURL(
+    "mailto:info@torvanta.in?subject=Torvanta Support Request&body=User ID: "+user?.uid
   );
-
-  const unsub = onSnapshot(q, (snap) => {
-    setUnreadCount(snap.size);
-  });
-
-  return unsub;
-}, []);
-const openDrawer = () => {
-    navigation.dispatch(DrawerActions.toggleDrawer());
-  };
+}
   return (
-    
     <View style={styles.header}>
-      {/* ☰ MENU */}
+      {/* LEFT */}
       <TouchableOpacity onPress={openDrawer}>
-        <Ionicons name="menu" size={26} color="#111" />
+        <Ionicons name="menu" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* CENTER TITLE */}
+      <View style={styles.titleContainer}>
+       <Text style={styles.title}>{title}
+        </Text>
+      </View>
+
       
-      {/* WELCOME */}
-      <Text style={styles.title} numberOfLines={2} >
-        {title}
-      </Text>
+      {/* Assistance */}
 
-      {/* 🔓 LOGOUT ICON */}
-      <TouchableOpacity onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={26} color="#dc2626" />
-      </TouchableOpacity>
-   
+<TouchableOpacity
+  style={styles.helpContainer}
+  onPress={contactSupport}
+>
 
-    
-        {/* 🔔 NOTIFICATIONS */}
-     
+<Ionicons
+  name="mail-outline"
+  size={16}
+  color="#D4AF37"
+/>
 
-<View>
-  <TouchableOpacity onPress={() => navigation.navigate("NotificationScreen")}>
-    <Ionicons name="notifications-outline" size={24} color="#000" />
-  </TouchableOpacity>
+<Text style={styles.helpText}>
+  For assistance: info@torvanta.in
+</Text>
 
-  {unreadCount > 0 && (
-    <View style={{
-      position: "absolute",
-      right: -6,
-      top: -6,
-      backgroundColor: "red",
-      borderRadius: 10,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    }}>
-      <Text style={{ color: "#fff", fontSize: 10 }}>
-        {unreadCount}
-      </Text>
+</TouchableOpacity>
+      
+
+      {/* RIGHT ICONS */}
+      <View style={styles.iconGroup}>
+        <View style={{ marginRight: 18 }}>
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate("NotificationScreen")
+            }
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color="#FFFFFF"
+            />
+          </TouchableOpacity>
+
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity onPress={handleLogout}>
+          <Ionicons
+            name="log-out-outline"
+            size={24}
+            color="#D4AF37"
+          />
+        </TouchableOpacity>
+      </View>
     </View>
-  )}
-</View>
-</View>
-);
+  );
 }
 
 const styles = StyleSheet.create({
   header: {
-    height: 78,
+    minHeight: 95,
+    paddingTop: 40,
     paddingHorizontal: 16,
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    backgroundColor: "#0B1F3B",
     borderBottomWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f5f7f8",
+    borderBottomColor: "#1E3A63",
   },
+
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+
   title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    maxWidth: "75%",
-    color: "#193fd5"
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#D4AF37",
+    textAlign: "center",
+    lineHeight: 22,
   },
+
+  iconGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
   badge: {
     position: "absolute",
-    top: -4,
-    right: -6,
-    backgroundColor: "#dc2626",
+    top: -6,
+    right: -10,
+    backgroundColor: "#D4AF37",
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -118,13 +153,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
   },
+
   badgeText: {
-    color: "#fff",
+    color: "#0B1F3B",
     fontSize: 10,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
-  icons: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+
+  helpContainer:{
+position:"absolute",
+bottom:6,
+alignSelf:"center",
+flexDirection:"row",
+alignItems:"center"
+},
+
+helpText:{
+color:"#C7D2E2",
+fontSize:12,
+marginRight:6,
+},
 });

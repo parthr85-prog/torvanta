@@ -1,76 +1,97 @@
-import {
-  PhoneAuthProvider,
-  signInWithCredential,
-  signInWithPhoneNumber,
-} from "firebase/auth";
+import auth from "@react-native-firebase/auth";
+import firestore from "@react-native-firebase/firestore";
 
-import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  BackHandler,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import { doc, getDoc } from "firebase/firestore";
-import { BackHandler } from "react-native";
-import { auth, db, firebaseConfig, setOtpVerified } from "../../../firebaseConfig";
-
+import { setOtpVerified } from "../../../firebaseConfig";
+import { setRegistering } from "../../../registrationState";
+import { clearConfirmation, getConfirmation, setConfirmation } from "../../utils/otpSession";
 
 export default function RegisterPhone() {
   const route = useRoute();
-  const [timer, setTimer] = useState(30);
-const [canResend, setCanResend] = useState(false);
-useEffect(() => {
-  {
-  const backAction = () => true; // block back
-  const backHandler = BackHandler.addEventListener(
-    "hardwareBackPress",
-    backAction
-  );
-
-  return () => backHandler.remove();
-};
-}, [step, timer]);
-
-  const { role } = route.params;
   const navigation = useNavigation();
-
-  const recaptchaVerifier = useRef(null);
+  const { role } = route.params;
 
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState("PHONE"); // PHONE | OTP
+  const [step, setStep] = useState("PHONE");
   const [loading, setLoading] = useState(false);
-  const [verificationId, setVerificationId] = useState(null);
+ 
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+  const cleanedMobile = mobile.replace(/\D/g, "").trim();
+ 
+
+  useEffect(() => {
+    const backAction = () => true;
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+    return () => backHandler.remove();
+  }, []);
+
+  useEffect(() => {
+    let interval;
+    if (step === "OTP" && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
 
   const sendOTP = async () => {
-    if (mobile.length !== 10) {
-      Alert.alert("Invalid number");
+    
+
+    if (cleanedMobile.length !== 10) {
+      Alert.alert("Invalid number", "Enter valid 10-digit number");
       return;
     }
+
+    const phoneNumber = `+91${cleanedMobile}`;
 
     try {
       setLoading(true);
 
-    const mobileRef = doc(db, "mobileIndex", mobile);
-    const snap = await getDoc(mobileRef);
+      const snap = await firestore()
+        .collection("mobileIndex")
+        .doc(cleanedMobile)
+        .get();
 
-    if (snap.exists()) {
-      Alert.alert(
-        "Mobile Already Registered",
-        "This mobile number is already in use. Please login."
-      );
-      return; // ⛔ STOP — NO OTP
-    }
+      if (snap.exists && snap.data()?.uid) {
+  setLoading(false); // ✅ ADD
+  Alert.alert(
+    "Mobile Already Registered",
+    "This mobile number is already in use."
+  );
+  return;
+}
+
+     const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
+setConfirmation(confirmation);
+
       
-      const confirmation = await signInWithPhoneNumber(
-        auth,
-        `+91${mobile}`,
-        recaptchaVerifier.current
-      );
-
-      setVerificationId(confirmation.verificationId);
+      setMobile(cleanedMobile);
       setStep("OTP");
       setTimer(30);
-setCanResend(false);
+      setCanResend(false);
+
     } catch (e) {
       Alert.alert("OTP Error", e.message);
     } finally {
@@ -78,141 +99,126 @@ setCanResend(false);
     }
   };
 
-const verifyOTP = async () => {
-  if (otp.length !== 6) {
-    Alert.alert("Invalid OTP");
-    return;
-  }
+  const verifyOTP = async () => {
+    if (loading) return;
 
-  if (!verificationId) {
-    Alert.alert("Error", "Verification ID missing");
-    return;
-  }
+    if (otp.length !== 6) {
+      Alert.alert("Invalid OTP");
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      setRegistering(true);
 
-    const credential = PhoneAuthProvider.credential(
-      verificationId,
-      otp
-    );
+      const confirmation = getConfirmation();
 
-    // 🔥 This throws error if OTP is wrong
-    await signInWithCredential(auth, credential);
-setOtpVerified();
-    // ✅ ONLY runs on SUCCESS
-    // AFTER OTP VERIFIED SUCCESSFULLY
-if (role === "company") {
-  navigation.replace("RegisterCompany", { mobile });
-} else if (role === "contractor") {
-  navigation.replace("RegisterContractor", { mobile });
-} else if (role === "labour") {
-  navigation.replace("RegisterLabour", { mobile });
+if (!confirmation) {
+  setLoading(false);
+  setRegistering(false);
+  Alert.alert("Session expired", "Please request OTP again.");
+  return;
 }
 
+await confirmation.confirm(otp);
+clearConfirmation();
 
-  } catch (e) {
-    console.log("VERIFY OTP ERROR:", e);
-    Alert.alert("Verification failed", "Incorrect OTP");
-    return; // ⛔ STOP EXECUTION
-  } finally {
-    setLoading(false);
-  }
-};
-return (
-  <View style={styles.container}>
-<FirebaseRecaptchaVerifierModal
-  ref={recaptchaVerifier}
-  firebaseConfig={firebaseConfig}
-  attemptInvisibleVerification
-/>
+      setOtpVerified();
+      console.log("OTP VERIFY START");
+      Alert.alert("Success", "OTP verified successfully");
 
-    <Text style={styles.title}>Mobile Verification</Text>
+      if (role === "company") { navigation.replace("RegisterCompany", { mobile: cleanedMobile }); } 
+      else if (role === "contractor") { navigation.replace("RegisterContractor", { mobile: cleanedMobile }); } 
+      else if (role === "labour") { navigation.replace("RegisterLabour", { mobile: cleanedMobile }); }
 
-    {/* PHONE STEP */}
-    {step === "PHONE" && (
-      <>
-        <TextInput
-          style={styles.input}
-          placeholder="Mobile Number"
-          keyboardType="number-pad"
-          maxLength={10}
-          value={mobile}
-          onChangeText={setMobile}
-        />
+    } catch (e) {
+      setRegistering(false);
+      console.log("OTP ERROR:", e);
+      Alert.alert("Verification failed", "Incorrect OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={sendOTP}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "Sending..." : "Send OTP"}
-          </Text>
-        </TouchableOpacity>
-      </>
-    )}
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Image
+        source={require("../../../assets/images/logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
-    {/* OTP STEP */}
-    {step === "OTP" && (
-      <>
-        <Text style={styles.label}>
-          OTP sent to +91 {mobile}
-        </Text>
+      <Text style={styles.brand}>TORVANTA</Text>
+      <Text style={styles.subtitle}>Mobile Verification</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Enter OTP"
-          keyboardType="number-pad"
-          maxLength={6}
-          value={otp}
-          onChangeText={setOtp}
-        />
+      <View style={styles.card}>
+        {step === "PHONE" && (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Mobile Number"
+              placeholderTextColor="#8FA3BF"
+              keyboardType="number-pad"
+              maxLength={10}
+              value={mobile}
+              onChangeText={setMobile}
+            />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={verifyOTP}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "Verifying..." : "Verify OTP"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* RESEND OTP */}
-        {canResend ? (
-          <TouchableOpacity onPress={sendOTP}>
-            <Text style={{ color: "#2563eb", textAlign: "center", marginTop: 10 }}>
-              Resend OTP
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={{ textAlign: "center", marginTop: 10 }}>
-            Resend OTP in {timer}s
-          </Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={sendOTP}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "Sending..." : "SEND OTP"}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
-      </>
-    )}
 
-  </View>
-);
+        {step === "OTP" && (
+          <>
+            <Text style={styles.label}>
+              OTP sent to +91 {mobile}
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter OTP"
+              placeholderTextColor="#8FA3BF"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={otp}
+              onChangeText={setOtp}
+            />
+
+            <TouchableOpacity
+              style={styles.button}
+              onPress={verifyOTP}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "Verifying..." : "VERIFY OTP"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
-  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
-  label: { textAlign: "center", marginBottom: 10 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: "#2563eb",
-    padding: 15,
-    borderRadius: 10,
-  },
-  buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
+  container: { flex: 1, backgroundColor: "#0B1F3B", justifyContent: "center", paddingHorizontal: 24 },
+  logo: { width: 90, height: 90, alignSelf: "center", marginBottom: 12 },
+  brand: { fontSize: 26, fontWeight: "700", textAlign: "center", color: "#FFFFFF" },
+  subtitle: { textAlign: "center", color: "#C7D2E2", marginBottom: 35 },
+  card: { backgroundColor: "#122A4D", padding: 24, borderRadius: 18 },
+  label: { textAlign: "center", color: "#C7D2E2", marginBottom: 15 },
+  input: { backgroundColor: "#0E2445", borderRadius: 14, padding: 15, marginBottom: 18, color: "#FFFFFF" },
+  button: { backgroundColor: "#D4AF37", paddingVertical: 16, borderRadius: 14 },
+  buttonText: { color: "#0B1F3B", fontWeight: "700", textAlign: "center" },
 });

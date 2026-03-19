@@ -1,179 +1,402 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import Clipboard from "@react-native-clipboard/clipboard";
+import auth from "@react-native-firebase/auth";
+import firestore from "@react-native-firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { auth, db } from "../../../firebaseConfig";
+import {
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+
 import VerificationBadge from "../../components/VerificationBadge";
 
-export default function MyBids() {
-  const user = auth.currentUser;
+export default function MyBids(){
 
-  const [bids, setBids] = useState([]);
-  const [loading, setLoading] = useState(true);
+const navigation = useNavigation();
+const user = auth().currentUser;
 
-  useEffect(() => {
-    const loadMyBids = async () => {
-      if (!user) return;
+const [bids,setBids] = useState([]);
+const [loading,setLoading] = useState(true);
 
-      try {
-        const q = query(
-          collection(db, "bids"),
-          where("bidBy", "==", user.uid)
-        );
+useEffect(()=>{
 
-        const bidSnap = await getDocs(q);
-        const results = [];
+if(!user) return;
 
-        for (const bidDoc of bidSnap.docs) {
-          const bidData = bidDoc.data();
+const unsubscribe = firestore()
+.collection("bids")
+.where("bidBy","==",user.uid)
+.onSnapshot(async(snapshot)=>{
 
-          const listingSnap = await getDoc(
-            doc(db, "listings", bidData.listingId)
-          );
+try{
 
-          if (!listingSnap.exists()) continue;
+const results = await Promise.all(
 
-          const listingData = listingSnap.data();
+snapshot.docs.map(async(bidDoc)=>{
 
-          results.push({
-            id: bidDoc.id,
-            ...bidData,
-            listing: listingData,
-          });
-        }
+const bidData = bidDoc.data();
 
-        setBids(results);
-      } catch (e) {
-        console.log("MY BIDS ERROR:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
+/* FETCH LISTING */
 
-    loadMyBids();
-  }, []);
+const listingRef = firestore()
+.collection("listings")
+.doc(bidData.listingId);
 
-  if (loading)
-    return <Text style={styles.loading}>Loading your bids...</Text>;
+const listingSnap = await listingRef.get();
 
-  if (bids.length === 0)
-    return <Text style={styles.loading}>You haven’t placed any bids yet</Text>;
+if(!listingSnap.exists) return null;
 
-  const getStatus = (item) => {
-    if (item.listing.awardedBidId === item.id) {
-      if (item.listing.status === "completed") {
-        return { text: "Project Completed ✅", color: "#16a34a" };
-      }
-      return { text: "You Won 🎉", color: "#16a34a" };
-    }
+const listingData = listingSnap.data();
 
-    if (item.status === "rejected") {
-      return { text: "Not Selected", color: "#ef4444" };
-    }
+/* FETCH CREATOR PROFILE */
 
-    return { text: "Pending", color: "#0a57f1" };
-  };
+const creatorRef = firestore()
+.collection("users")
+.doc(listingData.createdBy);
 
-  return (
-    <FlatList
-      data={bids}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={{ padding: 16 }}
-      renderItem={({ item }) => {
-        const status = getStatus(item);
+const creatorSnap = await creatorRef.get();
 
-        return (
-          <View style={styles.card}>
-            <Text style={styles.amount}>₹ {item.amount}</Text>
+return{
 
-            <Text style={styles.title}>{item.listing.title}</Text>
+id:bidDoc.id,
+...bidData,
+listing:listingData,
+creator:creatorSnap.exists ? creatorSnap.data() : null
 
-            <View style={styles.row}>
-              <Text style={styles.creator}>
-                {item.listing.createdByCompanyName || "Listing Owner"}
-              </Text>
-              <VerificationBadge
-                level={item.listing.createdByVerificationLevel || "basic"}
-              />
-            </View>
+};
 
-            <Text style={styles.meta}>
-              {item.listing.location} • {item.listing.category}
-            </Text>
+})
 
-            {item.message ? (
-              <Text style={styles.msg}>{item.message}</Text>
-            ) : null}
+);
 
-            <Text style={{
-              marginTop: 8,
-              fontWeight: "bold",
-              color: status.color
-            }}>
-              {status.text}
-            </Text>
+setBids(results.filter(Boolean));
 
-            <Text style={styles.date}>
-              Bid placed on{" "}
-              {item.createdAt?.toDate()?.toDateString() || "—"}
-            </Text>
-          </View>
-        );
-      }}
-    />
-  );
+}catch(e){
+
+console.log("MY BIDS ERROR:",e);
+
+}finally{
+
+setLoading(false);
+
 }
 
+});
+
+return ()=>unsubscribe();
+
+},[]);
+
+/* ---------------- COPY NUMBER ---------------- */
+
+const copyNumber = async(number)=>{
+await Clipboard.setString(number);
+alert("Contact number copied");
+};
+
+/* ---------------- STATUS ---------------- */
+
+const getStatus = (item) => {
+
+  if (item.status === "withdrawn") {
+    return { text: "Withdrawn", color: "#9CA3AF" };
+  }
+
+  if (item.listing.awardedBidId === item.id) {
+
+    if (item.listing.status === "completed") {
+      return { text: "Project Completed ✅", color: "#22C55E" };
+    }
+
+    return { text: "You Won 🎉", color: "#22C55E" };
+  }
+
+  if (item.status === "rejected") {
+    return { text: "Not Selected", color: "#EF4444" };
+  }
+
+  return { text: "Pending", color: "#D4AF37" };
+};
+
+/* ---------------- DATE FORMAT ---------------- */
+
+const formatDate = (ts)=>{
+if(!ts?.toDate) return "-";
+return ts.toDate().toDateString();
+};
+
+/*----------WITHDRAW BID---------------------- */
+const withdrawBid = async (bidId) => {
+  try {
+
+    await firestore()
+      .collection("bids")
+      .doc(bidId)
+      .update({
+        status: "withdrawn",
+        withdrawnAt: firestore.FieldValue.serverTimestamp()
+      });
+
+  } catch (e) {
+    console.log("WITHDRAW BID ERROR:", e);
+  }
+};
+
+const confirmWithdraw = (bidId) => {
+
+  Alert.alert(
+    "Withdraw Bid",
+    "Are you sure you want to withdraw this bid?",
+    [
+      { text: "No", style: "cancel" },
+      {
+        text: "Withdraw",
+        style: "destructive",
+        onPress: () => withdrawBid(bidId)
+      }
+    ]
+  );
+
+};
+
+/* ---------------- UI ---------------- */
+
+return(
+
+<View style={styles.container}>
+
+{loading ? (
+
+<Text style={styles.loading}>Loading bids...</Text>
+
+):( 
+
+<FlatList
+data={bids}
+keyExtractor={(item)=>item.id}
+contentContainerStyle={{ padding:16,paddingBottom:40 }}
+renderItem={({item})=>{
+
+const status = getStatus(item);
+
+const isWinner =
+item.listing.awardedBidId === item.id &&
+item.listing.status !== "open";
+
+
+return(
+
+<View style={styles.card}>
+
+<Text style={styles.amount}>₹ {item.amount} {styles.taxtype} {item.taxType} GST </Text>
+
+{/* CREATOR NAME */}
+
+<TouchableOpacity
+onPress={()=>navigation.navigate(
+"ViewUserProfile",
+{ userId:item.listing.createdBy }
+)}
+>
+<Text style={styles.creator}>
+{item.listing.createdByCompanyName}
+</Text>
+</TouchableOpacity>
+
+<VerificationBadge
+level={item.creator?.verificationLevel || "basic"}
+/>
+
+<Text style={styles.title}>
+{item.listing.title}
+</Text>
+
+<Text style={styles.meta}>
+{item.listing.category} • {item.listing.subCategory}
+</Text>
+
+<Text style={styles.meta}>
+Work Type: {item.listing.workType}
+</Text>
+
+<Text style={styles.meta}>
+Contract Type: {item.listing.contractType}
+</Text>
+
+<Text style={styles.meta}>
+Bid End: {formatDate(item.listing.bidEndDate)}
+</Text>
+
+<Text style={styles.meta}>
+Bid Submitted: {formatDate(item.createdAt)}
+</Text>
+
+<Text style={[styles.status,{color:status.color}]}>
+{status.text}
+</Text>
+
+{/* BID DOCUMENTS */}
+
+{item.documents?.length > 0 && (
+
+<View style={{marginTop:10}}>
+
+<Text style={styles.docTitle}>
+Uploaded Documents
+</Text>
+
+{item.documents.map((doc,i)=>(
+
+<Text key={i} style={styles.doc}>
+📄 {doc.name}
+</Text>
+
+))}
+
+</View>
+
+)}
+
+{item.status !== "withdrawn" && item.listing.status === "open" && (
+  <TouchableOpacity
+    style={styles.withdrawBtn}
+    onPress={() => confirmWithdraw(item.id)}
+  >
+    <Text style={styles.withdrawText}>Withdraw Bid</Text>
+  </TouchableOpacity>
+)}
+
+{/* CONTACT NUMBER */}
+
+{isWinner && item.listing.contactNumber && (
+
+<View style={{ marginTop:15 }}>
+
+<Text style={{ color:"#22C55E",fontWeight:"700" }}>
+Contact Number:
+</Text>
+
+<Text style={{ color:"#FFFFFF",marginTop:4 }}>
+{item.listing.contactNumber}
+</Text>
+
+<TouchableOpacity
+onPress={()=>copyNumber(item.listing.contactNumber)}
+style={{
+marginTop:8,
+backgroundColor:"#1E3A63",
+padding:8,
+borderRadius:8,
+alignSelf:"flex-start"
+}}
+>
+
+<Text style={{ color:"#D4AF37",fontWeight:"600" }}>
+Copy
+</Text>
+
+</TouchableOpacity>
+
+</View>
+
+)}
+
+</View>
+
+);
+
+}}
+
+ />
+
+)}
+
+</View>
+
+);
+
+}
+
+/* ---------------- STYLES ---------------- */
+
 const styles = StyleSheet.create({
-  loading: {
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#2563eb",
-  },
-  title: {
-    marginTop: 6,
-    fontWeight: "bold",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  creator: {
-    fontWeight: "600",
-    color: "#285399",
-  },
-  meta: {
-    color: "#6b7280",
-    marginTop: 4,
-  },
-  msg: {
-    marginTop: 6,
-    color: "#374151",
-  },
-  date: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#6b7280",
-  },
+
+container:{
+flex:1,
+backgroundColor:"#0B1F3B"
+},
+
+loading:{
+textAlign:"center",
+marginTop:40,
+fontSize:16,
+color:"#C7D2E2"
+},
+
+card:{
+backgroundColor:"#122A4D",
+padding:18,
+borderRadius:18,
+marginBottom:16,
+borderWidth:1,
+borderColor:"#1E3A63"
+},
+
+amount:{
+fontSize:20,
+fontWeight:"700",
+color:"#D4AF37"
+},
+
+creator:{
+marginTop:6,
+fontWeight:"700",
+fontSize:16,
+color:"#D4AF37"
+},
+
+title:{
+marginTop:6,
+fontSize:16,
+fontWeight:"700",
+color:"#D4AF37"
+},
+
+meta:{
+marginTop:4,
+color:"#C7D2E2"
+},
+
+status:{
+marginTop:10,
+fontWeight:"700"
+},
+
+docTitle:{
+color:"#22C55E",
+fontWeight:"700"
+},
+
+withdrawBtn:{
+marginTop:12,
+backgroundColor:"#EF4444",
+paddingVertical:8,
+paddingHorizontal:14,
+borderRadius:10,
+alignSelf:"flex-start"
+},
+
+withdrawText:{
+color:"#FFFFFF",
+fontWeight:"700"
+},
+
+doc:{
+color:"#FFFFFF",
+marginTop:4
+}
+
 });

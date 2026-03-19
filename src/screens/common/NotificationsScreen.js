@@ -1,13 +1,7 @@
+import auth from "@react-native-firebase/auth";
+import firestore from "@react-native-firebase/firestore";
+
 import { useNavigation } from "@react-navigation/native";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-} from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   FlatList,
@@ -17,7 +11,6 @@ import {
   View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
-import { auth, db } from "../../../firebaseConfig";
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -25,67 +18,105 @@ export default function NotificationsScreen() {
 
   /* ---------------- REAL-TIME LISTENER ---------------- */
   useEffect(() => {
-    if (!auth.currentUser) return;
+    const user = auth().currentUser;
+    if (!user) return;
 
-    const q = query(
-      collection(db, "users", auth.currentUser.uid, "notifications"),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setNotifications(
-        snapshot.docs.map((doc) => ({
+    const unsubscribe = firestore()
+      .collection("users")
+      .doc(user.uid)
+      .collection("notifications")
+      .orderBy("createdAt", "desc")
+      .onSnapshot(async (snapshot) => {
+        const list = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }))
-      );
-    });
+        }));
 
-    return unsubscribe;
+        setNotifications(list);
+
+        /* ✅ MARK ALL UNREAD AS READ WHEN SCREEN OPENS */
+        const unreadDocs = snapshot.docs.filter(
+          (doc) => !doc.data().isRead
+        );
+
+        if (unreadDocs.length > 0) {
+          const batch = firestore().batch();
+
+          unreadDocs.forEach((doc) => {
+            batch.update(doc.ref, { isRead: true });
+          });
+
+          await batch.commit();
+        }
+      });
+
+    return () => unsubscribe();
   }, []);
 
   /* ---------------- OPEN NOTIFICATION ---------------- */
   const openNotification = async (item) => {
-    try {
-      // Mark as read
-      await updateDoc(
-        doc(
-          db,
-          "users",
-          auth.currentUser.uid,
-          "notifications",
-          item.id
-        ),
-        { isRead: true }
-      );
+  try {
 
-      // Navigate based on type
-      if (
-        item.type === "NEW_BID" ||
-        item.type === "BID_REJECTED"
-      ) {
-        navigation.navigate("ViewMyListing", {
-          listingId: item.relatedListingId,
-        });
-      }
+    const user = auth().currentUser;
+    if (!user) return;
 
-      if (item.type === "BID_AWARDED") {
-        navigation.navigate("ViewListing", {
-          listingId: item.relatedListingId,
-        });
-      }
+    /* mark as read */
+    await firestore()
+      .collection("users")
+      .doc(user.uid)
+      .collection("notifications")
+      .doc(item.id)
+      .update({ isRead: true });
 
-    } catch (e) {
-      console.log("NOTIFICATION OPEN ERROR:", e);
+    /* ---------- NAVIGATION LOGIC ---------- */
+
+    if (item.type === "NEW_BID") {
+      navigation.navigate("ViewMyListing", {
+        listingId: item.listingId || item.relatedListingId,
+      });
+      return;
     }
-  };
 
-  /* ---------------- DELETE NOTIFICATION ---------------- */
+    if (item.type === "BID_REJECTED") {
+      navigation.navigate("MyBids");
+      return;
+    }
+
+    if (item.type === "BID_AWARDED") {
+      navigation.navigate("ViewListing", {
+        listingId: item.listingId || item.relatedListingId,
+      });
+      return;
+    }
+
+    if (item.type === "RATE_LISTING_CREATOR") {
+      navigation.navigate("RateUser", {
+        listingId: item.listingId,
+        userId: item.userId,
+      });
+      return;
+    }
+
+    /* fallback */
+    console.log("Unknown notification type:", item.type);
+
+  } catch (e) {
+    console.log("NOTIFICATION OPEN ERROR:", e);
+  }
+};
+
+  /* ---------------- DELETE ---------------- */
   const deleteNotification = async (id) => {
     try {
-      await deleteDoc(
-        doc(db, "users", auth.currentUser.uid, "notifications", id)
-      );
+      const user = auth().currentUser;
+      if (!user) return;
+
+      await firestore()
+        .collection("users")
+        .doc(user.uid)
+        .collection("notifications")
+        .doc(id)
+        .delete();
     } catch (e) {
       console.log("DELETE ERROR:", e);
     }
@@ -106,14 +137,14 @@ export default function NotificationsScreen() {
       <TouchableOpacity
         style={[
           styles.card,
-          { backgroundColor: item.isRead ? "#fff" : "#e8f0ff" },
+          item.isRead ? styles.readCard : styles.unreadCard,
         ]}
         onPress={() => openNotification(item)}
       >
         <Text
           style={[
             styles.title,
-            { fontWeight: item.isRead ? "normal" : "bold" },
+            { fontWeight: item.isRead ? "500" : "700" },
           ]}
         >
           {item.title}
@@ -136,7 +167,7 @@ export default function NotificationsScreen() {
       <Text style={styles.header}>Notifications</Text>
 
       {notifications.length === 0 ? (
-        <Text style={{ textAlign: "center", marginTop: 30 }}>
+        <Text style={styles.emptyText}>
           No notifications yet
         </Text>
       ) : (
@@ -144,49 +175,77 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
   );
 }
 
-/* ---------------- STYLES ---------------- */
+/* ---------------- TORVANTA THEME ---------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
-    backgroundColor: "#f5f6fa",
+    padding: 20,
+    backgroundColor: "#0B1F3B",
   },
+
   header: {
     fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 20,
   },
+
+  emptyText: {
+    textAlign: "center",
+    marginTop: 40,
+    color: "#94A3B8",
+  },
+
   card: {
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
   },
+
+  unreadCard: {
+    backgroundColor: "#122A4D",
+    borderColor: "#D4AF37",
+  },
+
+  readCard: {
+    backgroundColor: "#122A4D",
+    borderColor: "#1E3A63",
+  },
+
   title: {
     fontSize: 16,
+    color: "#FFFFFF",
   },
+
   msg: {
     fontSize: 14,
-    marginTop: 5,
+    marginTop: 6,
+    color: "#E5E7EB",
   },
+
   date: {
     fontSize: 12,
-    marginTop: 6,
-    color: "#6b7280",
+    marginTop: 8,
+    color: "#94A3B8",
   },
+
   deleteButton: {
-    backgroundColor: "#ef4444",
+    backgroundColor: "#DC2626",
     justifyContent: "center",
     alignItems: "center",
-    width: 80,
-    marginBottom: 10,
-    borderRadius: 10,
+    width: 90,
+    marginBottom: 14,
+    borderRadius: 16,
   },
+
   deleteText: {
     color: "#fff",
     fontWeight: "bold",
