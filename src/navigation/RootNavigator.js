@@ -41,7 +41,7 @@ const [role,setRole] = useState(null);
 const [loading,setLoading] = useState(true);
 const [registered,setRegistered] = useState(false);
 const { isRegistering } = useRegisteringState();
-const showAuth = !user || (user && role === null);
+const showAuth = !user || (!registered && !isRegistering);
 
 useEffect(()=>{
 
@@ -97,7 +97,7 @@ return unsubscribe;
 
 },[]);
 
-if (loading || (user && role === null)) {
+if (loading || (user && !registered && !isRegistering)) {
   return (
     <View style={{flex:1,justifyContent:"center",alignItems:"center"}}>
       <ActivityIndicator size="large" color="#D4AF37"/>
