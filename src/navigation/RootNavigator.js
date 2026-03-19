@@ -26,7 +26,6 @@ import {
   ActivityIndicator,
   View
 } from "react-native";
-import { useRegisteringState } from "../../registrationState"; // adjust path
 import LegalPage from "../screens/common/LegalPage";
 import SubscriptionGuard from "../screens/subscription/SubscriptionGuard";
 import SubscriptionScreen from "../screens/subscription/SubscriptionScreen";
@@ -40,10 +39,8 @@ const [user,setUser] = useState(null);
 const [role,setRole] = useState(null);
 const [loading,setLoading] = useState(true);
 const [registered,setRegistered] = useState(false);
-const { isRegistering } = useRegisteringState();
-const showAuth = !user || (!registered && !isRegistering);
 
-
+const showAuth = !user;
 
 useEffect(()=>{
 
@@ -99,14 +96,6 @@ return unsubscribe;
 
 },[]);
 
-if (loading || (user && !registered && !isRegistering)) {
-  return (
-    <View style={{flex:1,justifyContent:"center",alignItems:"center"}}>
-      <ActivityIndicator size="large" color="#D4AF37"/>
-    </View>
-  );
-}
-
 function CompanyWithSubscription(){
 return(
 <SubscriptionGuard user ={user} >
@@ -131,6 +120,26 @@ return(
 );
 }
 
+if (loading) {
+  return (
+    <View style={{flex:1,justifyContent:"center",alignItems:"center"}}>
+      <ActivityIndicator size="large" color="#D4AF37"/>
+    </View>
+  );
+}
+
+// ✅ ADD THIS BLOCK HERE
+if (user && !registered) {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="Auth"
+        component={AuthStack}
+        initialParams={{ screen: "RegisterRole" }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 return(
 
