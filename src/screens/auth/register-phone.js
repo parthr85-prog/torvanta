@@ -128,18 +128,9 @@ clearConfirmation();
       Alert.alert("Success", "OTP verified successfully");
       setRegistering(true);
 setTimeout(() => {
-      if (role === "company") { navigation.reset({
-  index: 0,
-  routes: [{ name: "RegisterCompany", params: { mobile: cleanedMobile } }],
-}); } 
-      else if (role === "contractor") { navigation.reset({
-  index: 0,
-  routes: [{ name: "RegisterContractor", params: { mobile: cleanedMobile } }],
-}); } 
-      else if (role === "labour") { navigation.reset({
-  index: 0,
-  routes: [{ name: "RegisterLabour", params: { mobile: cleanedMobile } }],
-}); }
+      if (role === "company") navigation.navigate("RegisterCompany", { mobile: cleanedMobile, fromOTP: true }); 
+      else if (role === "contractor") navigation.navigate("RegisterContractor", { mobile: cleanedMobile, fromOTP: true }); 
+      else if (role === "labour") navigation.navigate("RegisterLabour", { mobile: cleanedMobile, fromOTP: true });
 }, 300);
 
     } catch (e) {
