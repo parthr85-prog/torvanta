@@ -127,10 +127,20 @@ clearConfirmation();
       console.log("OTP VERIFY START");
       Alert.alert("Success", "OTP verified successfully");
       setRegistering(true);
-
-      if (role === "company") { navigation.replace("RegisterCompany", { mobile: cleanedMobile }); } 
-      else if (role === "contractor") { navigation.replace("RegisterContractor", { mobile: cleanedMobile }); } 
-      else if (role === "labour") { navigation.replace("RegisterLabour", { mobile: cleanedMobile }); }
+setTimeout(() => {
+      if (role === "company") { navigation.reset({
+  index: 0,
+  routes: [{ name: "RegisterCompany", params: { mobile: cleanedMobile } }],
+}); } 
+      else if (role === "contractor") { navigation.reset({
+  index: 0,
+  routes: [{ name: "RegisterContractor", params: { mobile: cleanedMobile } }],
+}); } 
+      else if (role === "labour") { navigation.reset({
+  index: 0,
+  routes: [{ name: "RegisterLabour", params: { mobile: cleanedMobile } }],
+}); }
+}, 300);
 
     } catch (e) {
       setRegistering(false);
