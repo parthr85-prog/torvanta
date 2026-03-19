@@ -126,6 +126,7 @@ clearConfirmation();
       setOtpVerified();
       console.log("OTP VERIFY START");
       Alert.alert("Success", "OTP verified successfully");
+      setRegistering(true);
 
       if (role === "company") { navigation.replace("RegisterCompany", { mobile: cleanedMobile }); } 
       else if (role === "contractor") { navigation.replace("RegisterContractor", { mobile: cleanedMobile }); } 
