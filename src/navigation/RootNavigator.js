@@ -41,7 +41,7 @@ const [role,setRole] = useState(null);
 const [loading,setLoading] = useState(true);
 const [registered,setRegistered] = useState(false);
 const { isRegistering } = useRegisteringState();
-const showAuth = !user || (!registered && !isRegistering);
+const showAuth = !user || (user && role === null);
 
 useEffect(()=>{
 
@@ -80,7 +80,8 @@ if (snap.exists) {
   setRegistered(false);
   setRole(null);
 }
-
+console.log("USER:", firebaseUser?.uid);
+console.log("ROLE SNAP:", snap.data());
 }catch(e){
 
 console.log("ROLE FETCH ERROR:",e);
@@ -96,12 +97,12 @@ return unsubscribe;
 
 },[]);
 
-if(loading){
-return(
-<View style={{flex:1,justifyContent:"center",alignItems:"center"}}>
-<ActivityIndicator size="large" color="#D4AF37"/>
-</View>
-);
+if (loading || (user && role === null)) {
+  return (
+    <View style={{flex:1,justifyContent:"center",alignItems:"center"}}>
+      <ActivityIndicator size="large" color="#D4AF37"/>
+    </View>
+  );
 }
 
 function CompanyWithSubscription(){
